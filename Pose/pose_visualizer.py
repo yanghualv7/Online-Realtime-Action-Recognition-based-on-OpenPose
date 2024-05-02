@@ -1,15 +1,18 @@
 # -*- coding: UTF-8 -*-
 import cv2 as cv
 import numpy as np
-import tensorflow as tf
+# import tensorflow as tf
 from .coco_format import CocoPart, CocoColors, CocoPairsRender
 from .pose_estimator import estimate
 
+# tf.compat.v1.disable_eager_execution()
+
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 class TfPoseVisualizer:
     # the thickness of showing skeleton
     Thickness_ratio = 2
-
     def __init__(self, graph_path, target_size=(368, 368)):
         self.target_size = target_size
         # load graph

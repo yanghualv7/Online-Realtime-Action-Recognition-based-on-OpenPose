@@ -7,9 +7,15 @@ from utils import choose_run_mode, load_pretrain_model, set_video_writer
 from Pose.pose_visualizer import TfPoseVisualizer
 from Action.recognizer import load_action_premodel, framewise_recognize
 
+# 指定视频文件路径
+video_path = 'test_0.mp4'
+
 parser = argparse.ArgumentParser(description='Action Recognition by OpenPose')
 parser.add_argument('--video', help='Path to video file.')
 args = parser.parse_args()
+
+# 将视频文件路径设定为指定的路径
+args.video = video_path
 
 # 导入相关模型
 estimator = load_pretrain_model('VGG_origin')
@@ -72,6 +78,12 @@ while cv.waitKey(1) < 0:
         # joints_norm_per_frame = np.array(pose[-1]).astype(np.str)
         # f.write(' '.join(joints_norm_per_frame))
         # f.write('\n')
+        
+    # 添加视频结束判断条件
+    if not has_frame:
+        # 视频已经读取结束，可以退出循环或者进行其他处理
+        print("The vedio had stop!")
+        break
 
 video_writer.release()
 cap.release()

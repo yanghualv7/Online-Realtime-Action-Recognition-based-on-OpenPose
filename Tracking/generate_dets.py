@@ -2,7 +2,9 @@ import os
 import errno
 import numpy as np
 import cv2
-import tensorflow as tf
+# import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 
 def _run_in_batches(f, data_dict, out, batch_size):
@@ -67,17 +69,17 @@ def extract_image_patch(image, bbox, patch_shape):
 
 
 class ImageEncoder(object):
-    def __init__(self, checkpoint_filename, input_name="images", output_name="features"):
-        with tf.gfile.GFile(checkpoint_filename, "rb") as f:
+    def __init__(self, checkpoint_filename, input_name="images",
+                output_name="features"):
+        self.session = tf.compat.v1.Session()
+        with tf.io.gfile.GFile(checkpoint_filename, "rb") as file_handle:
             graph_def = tf.GraphDef()
-            graph_def.ParseFromString(f.read())
-
-        self.graph = tf.get_default_graph()
+            graph_def.ParseFromString(file_handle.read())
         tf.import_graph_def(graph_def, name="net")
-        self.session = tf.Session(graph=self.graph)
-
-        self.input_var = self.graph.get_tensor_by_name("net/%s:0" % input_name)
-        self.output_var = self.graph.get_tensor_by_name("net/%s:0" % output_name)
+        self.input_var = tf.get_default_graph().get_tensor_by_name(
+            "net/%s:0" % input_name)
+        self.output_var = tf.get_default_graph().get_tensor_by_name(
+            "net/%s:0" % output_name)
 
         assert len(self.output_var.get_shape()) == 2
         assert len(self.input_var.get_shape()) == 4
@@ -102,7 +104,8 @@ def create_box_encoder(model_filename, input_name="images", output_name="feature
             patch = extract_image_patch(image, box, image_shape[:2])
             if patch is None:
                 print("WARNING: Failed to extract image patch: %s." % str(box))
-                patch = np.random.uniform(0., 255., image_shape).astype(np.uint8)
+                patch = np.random.uniform(
+                    0., 255., image_shape).astype(np.uint8)
             image_patches.append(patch)
         image_patches = np.asarray(image_patches)
         return image_encoder(image_patches, batch_size)
@@ -137,16 +140,20 @@ def generate_detections(encoder, mot_dir, output_dir, detection_dir=None):
         if exception.errno == errno.EEXIST and os.path.isdir(output_dir):
             pass
         else:
-            raise ValueError("Failed to created output directory '%s'" % output_dir)
+            raise ValueError(
+                "Failed to created output directory '%s'" % output_dir)
 
     for sequence in os.listdir(mot_dir):
         print("Processing %s" % sequence)
         sequence_dir = os.path.join(mot_dir, sequence)
 
         image_dir = os.path.join(sequence_dir, "img1")
-        image_filenames = {int(os.path.splitext(f)[0]): os.path.join(image_dir, f) for f in os.listdir(image_dir)}
+        image_filenames = {
+            int(os.path.splitext(f)[0]): os.path.join(image_dir, f)
+            for f in os.listdir(image_dir)}
 
-        detection_file = os.path.join(detection_dir, sequence, "det/det.txt")
+        detection_file = os.path.join(
+            detection_dir, sequence, "det/det.txt")
         detections_in = np.loadtxt(detection_file, delimiter=',')
         detections_out = []
 
@@ -161,12 +168,15 @@ def generate_detections(encoder, mot_dir, output_dir, detection_dir=None):
             if frame_idx not in image_filenames:
                 print("WARNING could not find image for frame %d" % frame_idx)
                 continue
-            bgr_image = cv2.imread(image_filenames[frame_idx], cv2.IMREAD_COLOR)
+            bgr_image = cv2.imread(
+                image_filenames[frame_idx], cv2.IMREAD_COLOR)
             features = encoder(bgr_image, rows[:, 2:6].copy())
-            detections_out += [np.r_[(row, feature)] for row, feature in zip(rows, features)]
+            detections_out += [np.r_[(row, feature)] for row, feature
+                            in zip(rows, features)]
 
         output_filename = os.path.join(output_dir, "%s.npy" % sequence)
-        np.save(output_filename, np.asarray(detections_out), allow_pickle=False)
+        np.save(
+            output_filename, np.asarray(detections_out), allow_pickle=False)
 
 #
 # def parse_args():
